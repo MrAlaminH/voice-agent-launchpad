@@ -57,6 +57,7 @@ class Assistant(Agent, AppointmentTools, TelephonyTools):
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata.setdefault("background_tasks", set())
 
 
 async def _build_end_call_payload(
@@ -133,6 +134,67 @@ async def entrypoint(ctx: JobContext):
             )
         except Exception:
             logger.warning("conversation_item_added handler failed", exc_info=True)
+
+    # === NEW: IMMEDIATE EGRESS STOP EVENT HANDLERS ===
+    @session.on("close")
+    def _on_session_close(ev):
+        """
+        Handle immediate session close to stop egress recording immediately.
+        This prevents the 20-30 second delay in recording termination.
+        """
+        logger.info(
+            "Session closed, stopping egress immediately",
+            extra={
+                "reason": getattr(ev, "reason", "unknown"),
+                "error": getattr(ev, "error", None),
+            },
+        )
+
+        # Stop egress immediately when session closes
+        egress_manager = ctx.proc.userdata.get("egress_manager")
+        if egress_manager:
+            try:
+                # Use asyncio.create_task to run async cleanup without blocking
+                background_tasks = ctx.proc.userdata["background_tasks"]
+                task = asyncio.create_task(egress_manager.stop_recording())
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
+                logger.info("Egress stop initiated on session close")
+            except Exception as exc:
+                logger.warning("Failed to stop egress on session close", exc_info=exc)
+
+    @ctx.room.on("participant_disconnected")
+    def _on_participant_disconnected(participant):
+        """
+        Handle participant disconnect to trigger immediate egress cleanup.
+        This provides additional safety for recording termination.
+        """
+        logger.info(
+            "Participant disconnected, checking for session end",
+            extra={"participant": participant.identity},
+        )
+
+        # Check if this was the last user participant (non-agent)
+        user_participants = [
+            p
+            for p in ctx.room.remote_participants.values()
+            if getattr(p, "kind", None) != "agent"
+        ]
+
+        if len(user_participants) == 0:
+            logger.info("Last user participant left, stopping egress")
+            egress_manager = ctx.proc.userdata.get("egress_manager")
+            if egress_manager:
+                try:
+                    background_tasks = ctx.proc.userdata["background_tasks"]
+                    task = asyncio.create_task(egress_manager.stop_recording())
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
+                    logger.info("Egress stop initiated on last participant disconnect")
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to stop egress on participant disconnect", exc_info=exc
+                    )
 
     async def _log_usage_summary():
         try:
@@ -227,14 +289,21 @@ async def entrypoint(ctx: JobContext):
     logger.info("Starting agent session; sending greeting")
     await session.say(greeting, allow_interruptions=False, add_to_chat_ctx=True)
 
-    # --- Shutdown cleanup ---
+    # --- UPDATED: Shutdown cleanup with state checking ---
     async def _cleanup_resources_on_shutdown():
-        # Egress cleanup
+        # Egress cleanup with check for already stopped
         egress_manager = ctx.proc.userdata.get("egress_manager")
         if egress_manager:
             try:
-                logger.info("Stopping egress")
-                await egress_manager.stop_recording()
+                # Check if egress is already stopped to avoid duplicate calls
+                if (
+                    not hasattr(egress_manager, "_is_stopped")
+                    or not egress_manager._is_stopped
+                ):
+                    logger.info("Stopping egress (shutdown cleanup)")
+                    await egress_manager.stop_recording()
+                else:
+                    logger.info("Egress already stopped, skipping shutdown stop")
                 await egress_manager.cleanup()
             except Exception:
                 logger.exception("Egress cleanup failed", exc_info=True)

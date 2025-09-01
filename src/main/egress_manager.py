@@ -24,6 +24,7 @@ class EgressManager:
     - Fallback URL construction: Builds URLs even when LiveKit doesn't return filenames
     - Environment-based configuration: Supports both MP4 and HLS recording modes
     - Comprehensive error handling and logging
+    - State tracking to prevent duplicate stop calls
     """
 
     def __init__(self, room_name: str):
@@ -36,6 +37,7 @@ class EgressManager:
         Key initialization:
         - Captures timestamp at creation for consistent filename generation
         - Prevents timestamp drift between LiveKit and our URL construction
+        - Initializes state tracking for proper stop handling
         """
         self.room_name = room_name
         self.lkapi = None  # LiveKit API client (initialized when needed)
@@ -43,6 +45,8 @@ class EgressManager:
         self.recording_metadata = {}  # Recording metadata for webhooks
         # Store timestamp at creation to ensure consistency across all operations
         self.timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        # State tracking to prevent duplicate stop calls
+        self._is_stopped = False
 
     async def start_recording(self) -> Optional[dict[str, Any]]:
         """
@@ -145,8 +149,13 @@ class EgressManager:
             bool: True if stopped successfully, False otherwise
         """
         try:
+            if self._is_stopped:
+                logger.debug("Egress already stopped, skipping")
+                return True
+
             if not self.lkapi or not self.egress_id:
                 logger.info("No active egress to stop")
+                self._is_stopped = True
                 return True
 
             logger.info("Stopping egress", extra={"egress_id": self.egress_id})
@@ -154,6 +163,7 @@ class EgressManager:
                 api.StopEgressRequest(egress_id=self.egress_id)
             )
 
+            self._is_stopped = True
             logger.info(
                 "Egress stopped successfully", extra={"egress_id": self.egress_id}
             )
@@ -162,6 +172,7 @@ class EgressManager:
         except Exception as exc:
             # Check if it's the expected "already completed" error
             if "EGRESS_COMPLETE cannot be stopped" in str(exc):
+                self._is_stopped = True
                 logger.info(
                     "Egress already completed, no need to stop",
                     extra={"egress_id": self.egress_id},
@@ -187,6 +198,10 @@ class EgressManager:
     def get_timestamp(self) -> str:
         """Get the consistent timestamp used for this recording session."""
         return self.timestamp
+
+    def is_stopped(self) -> bool:
+        """Check if egress has been stopped."""
+        return self._is_stopped
 
     def _is_egress_enabled(self) -> bool:
         """Check if egress is enabled via environment variable."""
