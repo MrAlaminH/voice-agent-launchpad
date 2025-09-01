@@ -1,11 +1,9 @@
 import logging
 import os
-import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
-from dataclasses import dataclass
 
-import aiohttp
 from livekit import api
 
 logger = logging.getLogger("webhook_handler")
@@ -167,7 +165,7 @@ class WebhookHandler:
         try:
             await self.lkapi.room.get_room(api.GetRoomRequest(room=room_name))
             logger.debug(f"Room {room_name} already exists")
-        except Exception as err:
+        except Exception:
             await self.lkapi.room.create_room(
                 api.CreateRoomRequest(
                     name=room_name,

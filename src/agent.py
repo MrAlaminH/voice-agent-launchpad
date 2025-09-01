@@ -1,44 +1,44 @@
+import asyncio
 import logging
 import os
 from datetime import datetime
-import asyncio
 
 from dotenv import load_dotenv
+from livekit import api
 from livekit.agents import (
     NOT_GIVEN,
     Agent,
     AgentFalseInterruptionEvent,
     AgentSession,
+    ConversationItemAddedEvent,
     JobContext,
     JobProcess,
     MetricsCollectedEvent,
     RoomInputOptions,
     RoomOutputOptions,
+    UserInputTranscribedEvent,
     WorkerOptions,
     cli,
     metrics,
-    ConversationItemAddedEvent,
-    UserInputTranscribedEvent,
 )
 from livekit.plugins import deepgram, google, noise_cancellation, silero
-from livekit import api
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # Local imports
 try:
-    from .system_prompt import SYSTEM_PROMPT
+    from .end_call_report import build_end_call_payload, send_end_call_report
     from .function_callings.tools_appointments import AppointmentTools
     from .function_callings.tools_telephony import TelephonyTools
-    from .end_call_report import build_end_call_payload, send_end_call_report
     from .main.egress_manager import EgressManager
     from .main.telephony_manager import TelephonyManager
+    from .system_prompt import SYSTEM_PROMPT
 except ImportError:
-    from system_prompt import SYSTEM_PROMPT
+    from end_call_report import build_end_call_payload, send_end_call_report
     from src.function_callings.tools_appointments import AppointmentTools
     from src.function_callings.tools_telephony import TelephonyTools
-    from end_call_report import build_end_call_payload, send_end_call_report
     from src.main.egress_manager import EgressManager
     from src.main.telephony_manager import TelephonyManager
+    from system_prompt import SYSTEM_PROMPT
 
 # Logging setup
 logger = logging.getLogger("agent")
