@@ -12,6 +12,7 @@ logger = logging.getLogger("webhook_handler")
 @dataclass
 class InboundCallRequest:
     """Data structure for inbound call webhook requests."""
+
     phone_number: str
     caller_id: Optional[str] = None
     call_id: Optional[str] = None
@@ -48,7 +49,9 @@ class WebhookHandler:
         self.agent_room_prefix = os.getenv("AGENT_ROOM_PREFIX", "agent_call")
         self.default_agent_instructions = os.getenv("DEFAULT_AGENT_INSTRUCTIONS", "")
 
-    async def handle_inbound_call_webhook(self, webhook_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_inbound_call_webhook(
+        self, webhook_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle inbound call webhook from Twilio or other SIP providers.
 
@@ -71,7 +74,9 @@ class WebhookHandler:
             )
 
             if not call_request.room_name:
-                call_request.room_name = self._generate_room_name(call_request.phone_number)
+                call_request.room_name = self._generate_room_name(
+                    call_request.phone_number
+                )
 
             await self._ensure_room_exists(call_request.room_name)
 
@@ -91,7 +96,9 @@ class WebhookHandler:
                 "call_id": call_request.call_id,
                 "room_name": call_request.room_name,
                 "phone_number": call_request.phone_number,
-                "agent_session_started": agent_session_result.get("session_started", False),
+                "agent_session_started": agent_session_result.get(
+                    "session_started", False
+                ),
             }
 
         except Exception as exc:
@@ -109,7 +116,9 @@ class WebhookHandler:
                 "webhook_data": webhook_data,
             }
 
-    def _parse_inbound_call_webhook(self, webhook_data: dict[str, Any]) -> InboundCallRequest:
+    def _parse_inbound_call_webhook(
+        self, webhook_data: dict[str, Any]
+    ) -> InboundCallRequest:
         """
         Parse webhook data into structured format.
 
@@ -131,7 +140,9 @@ class WebhookHandler:
             raise ValueError("Unsupported webhook format")
 
         if not call_id:
-            call_id = f"inbound_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{phone_number}"
+            call_id = (
+                f"inbound_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{phone_number}"
+            )
 
         return InboundCallRequest(
             phone_number=phone_number,
@@ -151,8 +162,8 @@ class WebhookHandler:
         Returns:
             str: Generated room name
         """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        clean_number = phone_number.replace('+', '').replace('-', '').replace(' ', '')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        clean_number = phone_number.replace("+", "").replace("-", "").replace(" ", "")
         return f"{self.agent_room_prefix}_{timestamp}_{clean_number}"
 
     async def _ensure_room_exists(self, room_name: str) -> None:
@@ -175,7 +186,9 @@ class WebhookHandler:
             )
             logger.info(f"Created new room: {room_name}")
 
-    async def _start_agent_session(self, call_request: InboundCallRequest) -> dict[str, Any]:
+    async def _start_agent_session(
+        self, call_request: InboundCallRequest
+    ) -> dict[str, Any]:
         """
         Start an agent session in the specified room.
 
@@ -214,7 +227,9 @@ class WebhookHandler:
                 "error": str(err),
             }
 
-    async def handle_agent_status_webhook(self, webhook_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_agent_status_webhook(
+        self, webhook_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle agent status update webhooks.
 
@@ -247,7 +262,9 @@ class WebhookHandler:
                 "error": str(err),
             }
 
-    async def handle_call_completion_webhook(self, webhook_data: dict[str, Any]) -> dict[str, Any]:
+    async def handle_call_completion_webhook(
+        self, webhook_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Handle call completion webhooks.
 

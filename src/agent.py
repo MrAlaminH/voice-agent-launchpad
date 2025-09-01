@@ -42,7 +42,9 @@ except ImportError:
 
 # Logging setup
 logger = logging.getLogger("agent")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 load_dotenv(".env.local")
 
 
@@ -57,7 +59,9 @@ def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
 
-async def _build_end_call_payload(ctx: JobContext, session: AgentSession, usage_collector: metrics.UsageCollector) -> dict:
+async def _build_end_call_payload(
+    ctx: JobContext, session: AgentSession, usage_collector: metrics.UsageCollector
+) -> dict:
     return await build_end_call_payload(ctx, session, usage_collector)
 
 
@@ -153,7 +157,10 @@ async def entrypoint(ctx: JobContext):
 
             history_dict = session.history.to_dict()
             messages = history_dict.get("messages", [])
-            has_user_activity = any(m.get("role") == "user" and (m.get("text") or "").strip() for m in messages)
+            has_user_activity = any(
+                m.get("role") == "user" and (m.get("text") or "").strip()
+                for m in messages
+            )
 
             logger.info(
                 "End-call criteria",
@@ -210,7 +217,9 @@ async def entrypoint(ctx: JobContext):
     await session.start(
         agent=Assistant(telephony_manager=telephony_manager),
         room=ctx.room,
-        room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
+        room_input_options=RoomInputOptions(
+            noise_cancellation=noise_cancellation.BVC()
+        ),
         room_output_options=RoomOutputOptions(sync_transcription=False),
     )
 
