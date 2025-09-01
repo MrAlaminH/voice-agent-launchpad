@@ -1,4 +1,4 @@
-# LiveKit Agents Starter - Python
+# Voice Agents launchpad - LiveKit
 
 A complete starter project for building voice AI apps with [LiveKit Agents for Python](https://github.com/livekit/agents).
 
